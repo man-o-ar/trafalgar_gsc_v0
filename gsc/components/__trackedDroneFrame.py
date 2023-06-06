@@ -293,7 +293,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
             self.update_time_left_label( )
             self._time_left_label.grid(row=0, rowspan=2, column=5, padx=0, pady=0, sticky="nsew")
 
-            self._masterApp.onOperatorPlay( self._index, True )
+            self._masterApp.onOperatorPlay( self._index, True, self.playtime_nb  )
 
         else:
             
@@ -307,7 +307,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
             self._playtime.grid(row=0, rowspan=2, column=5, padx=0, pady=0, sticky="nsew")
 
-            self._masterApp.onOperatorPlay( self._index, False )
+            self._masterApp.onOperatorPlay( self._index, False, self.playtime_nb )
 
 
     def add_marker( self, latitude, longitude ):

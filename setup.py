@@ -30,7 +30,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'gui = gsc.nodes.__gui:main'
+            'gsc = gsc.nodes.__gscApp:main'
         ],
     }
 )

@@ -676,8 +676,8 @@ class DisplayWindow(customtkinter.CTk):
 
 
 
-    def onOperatorPlay( self, index, enable ):
-        self._master._node._enable_gameplay( index, enable )
+    def onOperatorPlay( self, index, enable, playtime ):
+        self._master._node._enable_gameplay( index, enable, playtime )
 
 
     def OnDronesDatas( self, index, data ):

@@ -12,7 +12,7 @@ from threading import Thread,Lock
 import rclpy
 
 from ..utils.__utils_objects import DRONES_NAMES
-from ..components.__windowInterface import DisplayWindow
+from ..components.__userInterface import DisplayWindow
 from ..components.__rosThread import GCSNode
 
 class App:
@@ -99,9 +99,6 @@ class App:
                 pass
                  
                  
-
-
-
 def main(args=None):
 
     app = App(args)

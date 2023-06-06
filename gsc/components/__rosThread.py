@@ -28,7 +28,7 @@ class GCSNode( Node ):
 
     def __init__( self, Master=None, **kwargs):
 
-        super().__init__("gui", namespace=f"{PEER.MASTER}")
+        super().__init__("gui", namespace="master")
 
         self._master = Master
             
@@ -191,7 +191,7 @@ class GCSNode( Node ):
 
     
 
-    def  _enable_gameplay( self, index, enable ):
+    def  _enable_gameplay( self, index, enable, playtime ):
             
         if self._pub_gameplay is not None:
 
@@ -199,7 +199,8 @@ class GCSNode( Node ):
                 
             drone_gameplay = {
                 "index" : index,
-                "enable" : enable
+                "enable" : enable,
+                "playtime" : playtime
             }
 
             gameplay_msg.data = json.dumps( drone_gameplay )
