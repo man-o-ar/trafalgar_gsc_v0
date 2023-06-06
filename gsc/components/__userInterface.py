@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 import math
 import os
-import base64
-import datetime
-import numpy as np
-from enum import Enum
 from time import sleep
-from typing import Optional, Tuple, Union
 import cv2 # OpenCV library
 #import numpy as np
 import tkinter
@@ -19,584 +14,10 @@ customtkinter.set_default_color_theme("blue")  # Themes: blue (default), dark-bl
 
 import geocoder
 
-from ..utils.__utils_objects import SENSORS_TOPICS
+from ..utils.__utils_objects import EXIT_STATE, DIRECTION_STP
+from .__trackedDroneFrame import TrackedDrone
 
-class EXIT_STATE(str, Enum ):
-    ALIVE = "alive"
-    SHUTDOWN = "shutdown"
-    RESTART = "restart"
-
-
-
-
-DIRECTION_STP = ("EN STANDBY", "#868686")
-DIRECTION_FWD = ("MARCHE AVANT", "#028400")
-DIRECTION_BWD = ("MARCHE ARRIERE", "#CB4D00")
     
-
-class TrackedDrone( customtkinter.CTkFrame ):
-    
-    
-    def __init__(self, master: any, width: int = 200, height: int = 200, corner_radius: int or str or None = None, border_width: int or str or None = None, bg_color: str or Tuple[str, str] = "transparent", fg_color: str or Tuple[str, str] or None = None, border_color: str or Tuple[str, str] or None = None, background_corner_colors: Tuple[str or Tuple[str, str]] or None = None, overwrite_preferred_drawing_method: str or None = None, masterApp = None, drone_index = 0, drone_name = "", map=None, shipColors = ("#193296", "#ffffff" ), cb_playtime = None,cb_operator = None, **kwargs):
-        super().__init__(master, width, height, corner_radius, border_width, bg_color, fg_color, border_color, background_corner_colors, overwrite_preferred_drawing_method, **kwargs)
-
-        self._masterApp = masterApp
-        self._index = drone_index
-
-        self._name = drone_name.upper()
-        self._ip = ""
-
-        self._map = map
-        self._marker = None
-
-        self._shipColors = shipColors
-
-        self._cb_playtime = cb_playtime
-        self._cb_operator = cb_operator
-
-
-        self._playtime = None
-        self._operator_switch = None
-        self._autopilot_switch = None
-
-        self.operator_status = customtkinter.BooleanVar(value=False)
-        self.playtime_value = customtkinter.StringVar(value="10 minutes")
-
-        self.autopilot_status = customtkinter.BooleanVar(value=False) #StringVar
-
-        self._isDroneSendingUpdates = False
-        self._isDroneHasSentUpdates  =  False
-        
-        self._droneConnectionTimeToGCS = 0
-        self._droneUpdatesDelay = 5
-        self._droneUpdatesTimer = self._droneUpdatesDelay 
-
-        #STORE VALUES
-
-        self._droneGauge = None
-        self._operatorGauge = None
-        self._voltage = 0
-
-        self._propulsion_status = None
-        self._propulsion_level = 0
-        self._steering = 0
-
-        self._camera_azimuth = 90
-        self._camera_tilt = 90
-
-        self._latitude = 0
-        self._longitude = 0
-        self._azimuth = 0
-        self._speed = 0
-
-        self._pitch = 0
-        self._roll = 0
-        self._yaw =0
-
-        self._obstacle = 0
-
-        self._game_timer_enable = False
-        self._playtime_left = 0
-        self.playtime_nb =  10 * 60 
-
-        self._corner_radius = 0
-        self.pack(pady=10, padx=0, fill="both", expand=True)
-
-        self.populate_frame()
-
-
-    def _loop( self ):
-
-        if( self._game_timer_enable ):
-            
-            if( self._playtime_left > 0 ):
-
-                self._playtime_left -= 1
-                self.update_time_left_label( )
-
-            else:
-
-                self.enable_game_timer( False )
-
-
-        if( self._isDroneSendingUpdates is True ):
-            self._update_connection_time()
-
-        self._check_drone_status()
-
-
-    def _check_drone_status(self):
-
-        self._droneUpdatesTimer -= 1
-
-        if( self._droneUpdatesTimer <= 0 ):
-            
-            self._droneUpdatesTimer = self._droneUpdatesDelay
-
-            if not self._isDroneHasSentUpdates :
-                self._isDroneSendingUpdates = False
-                    
-            self._isDroneHasSentUpdates  =  False
-
-    def _update_connection_time( self ):
-        # add total connection time
-        self._droneConnectionTimeToGCS +=1
-
-        time_delta = datetime.timedelta(seconds=self._droneConnectionTimeToGCS)
-        formatted_time = str(time_delta).split(".")[0]
-        self._connectionTime_label.configure( text= formatted_time )
-
-    def populate_frame( self ): 
-        
-        self.configure_grid()
-        self.add_name_label()
-        self.add_autopilot_switch()
-        self.add_propulsion_label()
-        self.add_devices_label()
-        self.add_droneGauge_progressbar()
-        self.add_operatorGauge_progressbar()
-        self.add_connection_time_labels( )
-        self.add_operator_switch()
-        self.add_playtime_dropdown()
-        self.add_playtime_left_label( )
-
-
-    def configure_grid(self):
-
-        self.columnconfigure(0, weight=0)
-        self.columnconfigure(1, weight=0)
-        self.columnconfigure(2, weight=0)
-        self.columnconfigure(3, weight=0)
-        self.columnconfigure(4, weight=0)
-        self.columnconfigure(5, weight=1)
-
-        self.rowconfigure(0, weight=0)
-        self.rowconfigure(1, weight=0)
-
-
-    def add_name_label( self ):
-
-        label = customtkinter.CTkLabel(
-            self, 
-            text=self._name, 
-            width=100
-        )
-
-        label.configure(fg_color = self._shipColors[0])
-        label.grid(row=0, rowspan=2, column=0, padx=10, pady=0, sticky="nsew")
-
-
-    def add_autopilot_switch( self ):
-
-        self._autopilot_switch  = customtkinter.CTkSwitch(
-            master=self, 
-            text=f"AUTOPILOT",
-            command=self.onAutopilotSwitch,
-            variable=self.autopilot_status, 
-            onvalue=True,
-            offvalue=False
-            )
-        
-        self._autopilot_switch.deselect()
-
-        self._autopilot_switch.grid(row=0,  column=1, padx=5, pady=0, sticky="nsew")
-
-    def add_propulsion_label( self ):
-        self._propulsion_status = customtkinter.CTkLabel(
-            self,
-            text=""
-        )
-
-        self._propulsion_status.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-
-        self.update_propulsion( 0 )
-
-
-    def add_devices_label( self ):
-       
-        operator_label = customtkinter.CTkLabel(self, justify=customtkinter.LEFT, text="NAVISCOPE")
-        operator_label.grid(row=0, column=2, padx=(10,0), pady=0, sticky="e") 
-
-        drone_label = customtkinter.CTkLabel(self, justify=customtkinter.CENTER, text="DRONE")
-        drone_label.grid(row=1, column=2, padx=(10,0), pady=0, sticky="e") 
-
-
-    def add_droneGauge_progressbar( self ):
-        self._droneGauge  = customtkinter.CTkProgressBar(self,
-                                                    height = 10, 
-                                                    orientation="horizontal")
-        self._droneGauge.grid(row=0, column=3, padx=(5,10), pady=0, sticky="ew")
-
-        self.update_gauge(100)
-
-
-    def add_operatorGauge_progressbar( self ):
-        self._operatorGauge  = customtkinter.CTkProgressBar(self,
-                                                    height = 10, 
-                                                    orientation="horizontal")
-        self._operatorGauge.grid(row=1, column=3, padx=(5,10), pady=0, sticky="ew")
-
-        self.update_operatorGauge(100)
-
-
-    def add_connection_time_labels( self ):
-
-        self._connectionTime_label = customtkinter.CTkLabel(
-            self, 
-            text="00:00:00",
-            justify=customtkinter.LEFT
-            )
-        self._connectionTime_label.grid(row=0, column=4, padx=(5,10), pady=0, sticky="ns")
-
-        self._connectionTimeOperator_label = customtkinter.CTkLabel(
-            self, 
-            text="00:00:00",
-            justify=customtkinter.LEFT)
-        self._connectionTimeOperator_label.grid(row=1, column=4, padx=(5,10), pady=0, sticky="ns")
-
-
-    def add_playtime_dropdown( self ):
-        self._playtime = customtkinter.CTkOptionMenu(
-            self, 
-            values=["10 minutes", "20 minutes"],
-            variable=self.playtime_value,
-            command=self.onPlayTimeChanged
-        )
-    
-        self._playtime.grid(row=1, column=5, padx=(40,10), pady=(5,0), sticky="ew")
-
-
-    def add_operator_switch( self ):
-
-        self._operator_switch = customtkinter.CTkSwitch(
-            master=self, 
-            text="START A GAME",
-            command=self.onOperatorSwitch,
-            variable=self.operator_status, 
-            onvalue=True,
-            offvalue=False
-        )
-
-        self._operator_switch.grid(row=0, column=5, padx=(40,10), pady=0, sticky="ew")
-
-
-    def add_playtime_left_label( self ):
-
-        custom_font =("Times",20,'bold')
-
-        self._time_left_label = customtkinter.CTkLabel(
-            self, 
-            text="", 
-            font=custom_font,
-            justify=customtkinter.CENTER )
-
-        self._time_left_label.grid_forget()
-
-    def update_time_left_label( self ):
-
-        minutes = self._playtime_left // 60
-        seconds = self._playtime_left % 60
-        formatted_time = "{:02d}:{:02d}".format(minutes, seconds)
-
-        self._time_left_label.configure( text=f" {formatted_time} ")
-        
-
-    def enable_game_timer( self, isEnable ):
-            
-        self._game_timer_enable = isEnable
-
-        if( isEnable ):
-            
-            self._playtime_left = self.playtime_nb
-
-            self._operator_switch.configure(text="STOP THE GAME")
-
-            if( self._playtime.winfo_viewable()):
-                self._playtime.grid_forget()
-
-            self.update_time_left_label( )
-            self._time_left_label.grid(row=0, rowspan=2, column=5, padx=0, pady=0, sticky="nsew")
-
-            self._masterApp.onOperatorPlay( self._index, True )
-
-        else:
-            
-            self._playtime_left = 0
-            self._time_left_label.grid_forget()
-
-            self._operator_switch.configure(text="START A GAME")
-
-            self._playtime.set("10 minutes")
-            self.adjust_playtime()
-
-            self._playtime.grid(row=0, rowspan=2, column=5, padx=0, pady=0, sticky="nsew")
-
-            self._masterApp.onOperatorPlay( self._index, False )
-
-
-    def add_marker( self, latitude, longitude ):
-
-        self._marker = self._map.set_marker(
-            latitude,
-            longitude,
-            text= self._name,
-            marker_color_circle=self._shipColors[0],
-            marker_color_outside=self._shipColors[1]
-            #command = self.display_update
-        )
-
-
-    def onPlayTimeChanged( self, value ):
-
-        self.adjust_playtime()
-
-
-    def adjust_playtime( self ):
-
-        value = self.playtime_value.get()
-
-        if( value == "20 minutes"):
-            self.playtime_nb = 20 * 60
-        elif( value == "30 minutes"):
-            self.playtime_nb = 30 * 60
-        else:
-            self.playtime_nb =  10 * 60
-
-    def onOperatorSwitch( self ):
-
-        operator_state = self.operator_status.get()
-        self.enable_game_timer(operator_state)
-
-    def onAutopilotSwitch(self):
-
-        autopilot_state = self.autopilot_status.get()
-
-        if( autopilot_state is True):
-
-            operator_state = self.operator_status.get()
-
-            if operator_state is True:
-                self._operator_switch.toggle()
-
-            self._operator_switch.configure(state="disabled")
-
-            print( "autopilot enable ")
-
-        elif ( autopilot_state is False):
-            self._operator_switch.configure(state="normal")
-            print("autopilot disable")
-
-    def update_propulsion( self, data ): 
-
-        if( data == -1):
-
-            self._propulsion_status.configure(text=DIRECTION_BWD[0])
-            self._propulsion_status.configure(fg_color=DIRECTION_BWD[1])
-
-        elif( data == 1 ):
-
-            self._propulsion_status.configure(text=DIRECTION_FWD[0])
-            self._propulsion_status.configure(fg_color=DIRECTION_FWD[1])
-
-        else:
-            self._propulsion_status.configure(text= DIRECTION_STP[0])
-            self._propulsion_status.configure(fg_color=DIRECTION_STP[1])
-
-    def update_gauge( self, data ):
-        
-        update_gauge = np.clip( data/100, 0, 1)
-
-        self._droneGauge.set( update_gauge )
-
-        if update_gauge > 0.5:
-
-            if ( update_gauge >= 0.65 ):
-                self._droneGauge.configure(progress_color =  "#47D600")
-            else:
-                self._droneGauge.configure(progress_color =  "#FFCD00")
-
-        elif update_gauge <= 0.5:
-
-            if( update_gauge > 0.3):
-                self._droneGauge.configure(progress_color =  "#FF8000")
-            else:
-                self._droneGauge.configure(progress_color =  "#FF0000")
-
-    def update_operatorGauge( self, data ):
-        
-        update_gauge = np.clip( data/100, 0, 1)
-
-        self._operatorGauge.set( update_gauge )
-
-        if update_gauge > 0.5:
-
-            if ( update_gauge >= 0.65 ):
-                self._operatorGauge.configure(progress_color =  "#47D600")
-            else:
-                self._operatorGauge.configure(progress_color =  "#FFCD00")
-
-        elif update_gauge <= 0.5:
-
-            if( update_gauge > 0.3):
-                self._operatorGauge.configure(progress_color =  "#FF8000")
-            else:
-                self._operatorGauge.configure(progress_color =  "#FF0000")
-
-
-    def onGaugeUpdate( self, data ):
-
-        if( data is not None ) :
-            self.update_gauge( data )
-
-    def onVoltageUpdate( self, data ):
-
-        if( data is not None):
-            self._voltage = data
-    
-    def onDirectionUpdate( self, data ):
-
-        if( data is not None):
-            self.update_propulsion(data)
-
-    def onThrustUpdate( self, data ):
-
-        if data is not None:
-            self._propulsion_level = data 
-
-    def onSteeringUpdate( self, data ):
-
-        if data is not None:
-            self._steering = data 
-
-    def onLatitudeUpdate( self, data ):
-           
-        if data is not None:
-            self._latitude = data             
-    
-    def onLongitudeUpdate( self, data ):
-           
-        if data is not None:
-            self._longitude = data  
-
-    def onAzimuthUpdate( self, data ):
-           
-        if data is not None:
-            self._azimuth = data                 
-
-    def onSpeedUpdate( self, data ):
-           
-        if data is not None:
-            self._speed = data  
-
-    def onPanUpdate( self, data ):
-           
-        if data is not None:
-            self._camera_azimuth = data  
-
-    def onTiltUpdate( self, data ):
-           
-        if data is not None:
-            self._camera_tilt = data  
-
-    def onPitchUpdate( self, data ):
-           
-        if data is not None:
-            self._pitch = data  
-
-    def onRollUpdate( self, data ):
-           
-        if data is not None:
-            self._roll = data  
-
-    def onYawUpdate( self, data ):
-           
-        if data is not None:
-            self._yaw = data  
-
-    def onObstacleUpdate( self, data ):
-           
-        if data is not None:
-            self._obstacle = data  
-
-    def onPanUpdate( self, data ):
-           
-        if data is not None:
-            self._camera_azimuth = data  
-
-    def onTiltUpdate( self, data ):
-           
-        if data is not None:
-            self._camera_tilt = data  
-
-    def GPSUpdate( self ):
-        
-        if( self._latitude != 0 and self._longitude != 0 ):
-
-            if( self._marker is None ):
-                self.add_marker(self._latitude, self._longitude )
-            else:
-                self.update_position(self._latitude, self._longitude)
-    
-    def update_position( self, latitude, longitude ): 
-        self._marker.set_position(latitude, longitude)
-        #print("update ", latitude, " / ", longitude)
-
-    def onSensorsUpdate( self, sensor_datas ):
-
-        self._isDroneSendingUpdates = True
-        self._isDroneHasSentUpdates = True
-
-        for topic in sensor_datas:
-
-            if( topic == SENSORS_TOPICS.BATTERY_GAUGE ) :
-                self.onGaugeUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.BATTERY_VOLTAGE  ):
-                self.onVoltageUpdate( sensor_datas[topic])
-            
-            elif(topic == SENSORS_TOPICS.DIRECTION  ):
-                self.onDirectionUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.THRUST  ):
-                self.onThrustUpdate( sensor_datas[topic])
-            
-            elif(topic == SENSORS_TOPICS.STEERING  ):
-                self.onSteeringUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.LAT  ):
-                self.onLatitudeUpdate( sensor_datas[topic])
-            
-            elif(topic == SENSORS_TOPICS.LON  ):
-                self.onLongitudeUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.AZI  ):
-                self.onAzimuthUpdate( sensor_datas[topic])
-            
-            elif(topic == SENSORS_TOPICS.SPEED  ):
-                self.onSpeedUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.PITCH  ):
-                self.onPitchUpdate( sensor_datas[topic])
-            
-            elif(topic == SENSORS_TOPICS.ROLL  ):
-                self.onRollUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.YAW  ):
-                self.onYawUpdate( sensor_datas[topic])
-            
-            elif(topic == SENSORS_TOPICS.OBSTACLE  ):
-                self.onObstacleUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.CAM_PAN  ):
-                self.onPanUpdate( sensor_datas[topic])
-
-            elif(topic == SENSORS_TOPICS.CAM_TILT  ):
-                self.onTiltUpdate( sensor_datas[topic])
-
-        self.GPSUpdate( )
-
-
-
 class DisplayWindow(customtkinter.CTk):
 
     APP_NAME = "MASTER CONTROL"
@@ -637,7 +58,8 @@ class DisplayWindow(customtkinter.CTk):
 
         self.supervision_tab_name = "       ___ SUPERVISION ___       "
         self.control_tab_name = "       ___ PILOTAGE MANUEL ___       "
-
+        self._active_tab = None
+        
         self._sensor_index = 0
         self._drone_control_by_master = None
 
@@ -683,7 +105,13 @@ class DisplayWindow(customtkinter.CTk):
 
             for drone in self._tracked_drones.values():
                 drone._loop()
-            
+
+        if self._active_tab is None :
+            self._active_tab = self.tabview.get()
+
+        if ( self._active_tab == self.control_tab_name ):
+            self.update_drone_control_by_master()
+
         self.after(1000, self._loop)#wait for 1 second
 
 
@@ -720,9 +148,9 @@ class DisplayWindow(customtkinter.CTk):
 
     def onTabSelect( self ):
 
-        active_tab = self.tabview.get()
+        self._active_tab = self.tabview.get()
 
-        if ( active_tab != self.control_tab_name ):
+        if ( self._active_tab != self.control_tab_name ):
             self._radios_btn_drones[0].invoke()
 
 
@@ -839,13 +267,14 @@ class DisplayWindow(customtkinter.CTk):
         )
 
         self._shipColor_label.grid(row=0, column=0, padx=(10,0), pady=(20, 5), sticky="nsew")
-        self._shipColor_label.configure(fg_color="green")
+        #self._shipColor_label.configure(fg_color="green")
 
         self._ip_label = customtkinter.CTkLabel(
             control_panel,
             justify=customtkinter.LEFT,
-            text="192.168.0.144"
+            text=""
         )
+        self._ip_label.grid(row=0, column=1, padx=(20,0), pady=(20, 5), sticky="nsw")
 
         fpv_frame = self.add_fpv_frame(control_panel)
 
@@ -853,7 +282,6 @@ class DisplayWindow(customtkinter.CTk):
         propulsion_frame = self.add_propulsion_frame(control_panel)
         gyro_frame = self.add_gyro_frame( control_panel ) 
 
-        self._ip_label.grid(row=0, column=1, padx=(20,0), pady=(20, 5), sticky="nsw")
 
         fpv_frame.grid( row = 1, column =0 , columnspan = 2, padx=(0,0), pady=(10,0), sticky ="new")
         battery_frame.grid( row = 2, column =0, columnspan = 2, padx=(0,0), pady=(20,0), sticky ="new")
@@ -918,7 +346,7 @@ class DisplayWindow(customtkinter.CTk):
         self._range_label = customtkinter.CTkLabel(
             fpv_frame,
             justify=customtkinter.LEFT,
-            text="0 m"
+            text=""
         )
 
         self._range_label.grid(row=1, column=1, padx=(0,0), pady=(5,10), sticky="ew")
@@ -971,13 +399,13 @@ class DisplayWindow(customtkinter.CTk):
 
         left_desc.grid(row=0, column=1, padx=(0,0), pady=(10,0), sticky="w")
 
-        center_desc = customtkinter.CTkLabel(
+        self._steering_angle_label = customtkinter.CTkLabel(
             propulsion_frame,
             justify=customtkinter.CENTER,
             text="Centre"
         )
 
-        center_desc.grid(row=0, column=2, padx=(0,10), pady=(10,0), sticky="nsew")
+        self._steering_angle_label.grid(row=0, column=2, padx=(0,10), pady=(10,0), sticky="nsew")
 
         right_desc = customtkinter.CTkLabel(
             propulsion_frame,
@@ -987,14 +415,14 @@ class DisplayWindow(customtkinter.CTk):
 
         right_desc.grid(row=0, column=3, padx=(0,10), pady=(10,0), sticky="e")
 
-        self._direction_slider = customtkinter.CTkSlider(master=propulsion_frame, from_=-100, to=100, number_of_steps= 199)
+        self._direction_slider = customtkinter.CTkSlider(master=propulsion_frame, from_=0, to=180, number_of_steps= 179)
         self._direction_slider.grid(row=1, column=1, columnspan=3, padx=(5,15), pady=(0,20), sticky="nsew")
-        self._direction_slider.set(0)
+        self._direction_slider.set(90)
     
         self._speed_label = customtkinter.CTkLabel(
             propulsion_frame,
             justify=customtkinter.CENTER,
-            text="5.25 km/h"
+            text=""
         )
 
         self._speed_label.grid(row=2, column=0,  padx=(5,0), pady=(5,15), sticky="nsew")
@@ -1025,7 +453,15 @@ class DisplayWindow(customtkinter.CTk):
             text="AUTONOMIE"
         )
 
-        desc.grid(row=0, rowspan=2, column=0, columnspan=2, padx=(50,0), pady=(0,0), sticky="nsew")
+        desc.grid(row=0, column=0, columnspan=2, padx=(50,0), pady=(0,0), sticky="nsew")
+
+        self._autonomy_left_label = customtkinter.CTkLabel(
+            battery_frame,
+            justify=customtkinter.CENTER,
+            text=""
+        )
+
+        self._autonomy_left_label.grid(row=1, column=0, columnspan=2, padx=(50,0), pady=(0,0), sticky="nsew")
 
         voltage_desc = customtkinter.CTkLabel(
             battery_frame,
@@ -1038,7 +474,7 @@ class DisplayWindow(customtkinter.CTk):
         self._battery_voltage_label = customtkinter.CTkLabel(
             battery_frame,
             justify=customtkinter.LEFT,
-            text="0.0 V"
+            text=""
         )
 
         self._battery_voltage_label.grid(row=0, column=3,  padx=(0,0), pady=(5,15), sticky="w")
@@ -1056,8 +492,8 @@ class DisplayWindow(customtkinter.CTk):
         gyro_frame.grid_columnconfigure(0,weight=1)
         gyro_frame.grid_columnconfigure(1,weight=1)
         gyro_frame.grid_columnconfigure(2,weight=0)
-        gyro_frame.grid_columnconfigure(3,weight=0)
-        gyro_frame.grid_columnconfigure(4,weight=1)
+        gyro_frame.grid_columnconfigure(3,weight=1)
+        gyro_frame.grid_columnconfigure(4,weight=0)
 
         gyro_frame.grid_rowconfigure(0,weight=0)
         gyro_frame.grid_rowconfigure(1,weight=0)
@@ -1182,14 +618,15 @@ class DisplayWindow(customtkinter.CTk):
 
     def onDroneRadioSelection( self ):
 
-        drone_index = -1
+        drone_index = 0
         radio_value = self.radio_var.get()
 
         for i in range( len( self._names ) ):
             
             if( self._names[i][0] == radio_value ): 
-                drone_index +=1
                 break
+            drone_index +=1
+
 
         self._master._on_gui_drone_index_change( drone_index )
 
@@ -1212,15 +649,31 @@ class DisplayWindow(customtkinter.CTk):
                 if operator_state is True:
                     drone._operator_switch.toggle()
                 
-                self.update_drone_control_by_master( self )
+                self.update_drone_control_by_master()
 
         else:
             
             self._drone_control_by_master = None
+            
+            self.canvas.configure(bg='white')
 
             self._shipColor_label.configure( fg_color="transparent")
             self._propulsion_label.configure(text=DIRECTION_STP[0])
             self._propulsion_label.configure(fg_color=DIRECTION_STP[1])
+
+            self._range_label.configure( text="0 m")
+            self._tilt_slider.set(90)
+            self._pan_slider.set(90)
+            self._autonomy_left_label.configure(text="")
+            self._speed_label.configure(text="")
+            self._battery_voltage_label.configure(text="")
+            self._battery_gauge_slider.set(0)
+            self._direction_slider.set(90)
+            self._thrust_slider.set(0)
+            self._pitch_slider.set(0)
+            self._roll_slider.set(0)
+            self._yaw_slider.set(0)
+
 
 
     def onOperatorPlay( self, index, enable ):
@@ -1234,6 +687,13 @@ class DisplayWindow(customtkinter.CTk):
         if( drone is not None):
             drone.onSensorsUpdate( data )
 
+    def OnOperatorDatas( self, index, data ):
+
+        drone = self._tracked_drones[f"drone_{index}"]
+
+        if( drone is not None):
+            drone.onOperatorUpdate( data )
+            
 
     def set_map_events( self ): 
 
@@ -1297,43 +757,71 @@ class DisplayWindow(customtkinter.CTk):
             self._set_gauge( drone )
             self._set_propulsion( drone )
             self._set_imu( drone )
+            self._set_ip( drone )
 
 
     def _set_obstacle_range( self, drone ):
-        meter = drone._obstacle / 100
-        self._range_label.configure(text = f"{meter:.2f}m")
+
+        if drone._obstacle is not None: 
+            meter = drone._obstacle / 100
+            self._range_label.configure(text = f"{meter:.2f}m")
 
     def _set_pan( self, drone ):
-        self._pan_slider.set( drone._camera_azimuth )
-        self._pan_label.configure(text = f"Azimuth: {math.floor(drone._camera_azimuth)}°" )
+        
+        if(drone._camera_azimuth is not None ):
+            self._pan_slider.set( drone._camera_azimuth )
+            self._pan_label.configure(text = f"Azimuth: {math.floor(drone._camera_azimuth)}°" )
 
     def _set_tilt( self, drone ):
-        self._tilt_slider.set( drone._camera_tilt )
-        self._tilt_label.configure(text = f"Inclinaison: {math.floor(drone._camera_tilt)}°" )
+        
+        if(drone._camera_tilt is not None ):
+            self._tilt_slider.set( drone._camera_tilt )
+            self._tilt_label.configure(text = f"Inclinaison: {math.floor(drone._camera_tilt)}°" )
 
     def _set_gauge(self, drone ):
-        self._battery_voltage_label .configure(text = f"Tension: {drone._voltage} V" )
-        self._battery_gauge_slider.set( drone._droneGauge )
+        
+        if( drone._droneGauge is not None ):
+            self._autonomy_left_label.configure(text = "{:.2f} %".format(drone._droneGauge * 100))
+            self._battery_voltage_label.configure(text = f"Tension: {drone._voltage} V" )
+            self._battery_gauge_slider.set( drone._droneGauge )
+
 
     def _set_propulsion( self, drone ):
-        self._propulsion_label.configure(text=drone._propulsion_status.cget("text"))
-        self._propulsion_label.configure(fg_color=drone._propulsion_status.cget("fg_color"))
-        
-        self._thrust_slider.set( drone._propulsion_level )
 
-        self._direction_slider.set(drone._steering )
-        self._speed_label.configure(text = f"{drone._speed } km/h" )
+        if drone._propulsion_status is not None:
+            self._propulsion_label.configure(text=drone._propulsion_status.cget("text"))
+            self._propulsion_label.configure(fg_color=drone._propulsion_status.cget("fg_color"))
+        
+        if drone._propulsion_level is not None:
+            self._thrust_slider.set( drone._propulsion_level )
+
+        if drone._steering is not None:
+            self._direction_slider.set(drone._steering )
+
+            delta = drone._steering - 90
+            steering_info = f"{ delta }°"
+            
+            self._steering_angle_label.configure(text = steering_info )
+            self._speed_label.configure(text = f"{drone._speed } km/h" )
+            
 
     def _set_imu( self, drone ):
 
-        self._pitch_label.configure(text=f"{drone._pitch}°" )
-        self._pitch_slider.set( drone._pitch )
+        if drone._pitch is not None:
+            self._pitch_label.configure(text=f"{drone._pitch}°" )
+            self._pitch_slider.set( drone._pitch )
 
-        self._roll_label.configure(text=f"{drone._roll}°" )
-        self._roll_slider.set(drone._roll)
+        if drone._roll is not None:
+            self._roll_label.configure(text=f"{drone._roll}°" )
+            self._roll_slider.set(drone._roll)
 
-        self._yaw_label.configure(text=f"{drone._yaw}°" )
-        self._yaw_slider.set(drone._yaw)
+        if drone._yaw is not None:
+            self._yaw_label.configure(text=f"{drone._yaw}°" )
+            self._yaw_slider.set(drone._yaw)
+
+    def _set_ip( self, drone ):
+        if drone._ip is not None:
+            self._ip_label.configure(text=drone._ip )
 
 
     def _update_frame( self, frame ):
@@ -1341,7 +829,7 @@ class DisplayWindow(customtkinter.CTk):
         if( frame is not None ):
             
             #np.asarray(frame),
-            resized_frame = cv2.resize( frame, (self.canvas.winfo_height(), self.canvas.winfo_width() ))
+            resized_frame = cv2.resize( frame, ( self.canvas.winfo_width(), self.canvas.winfo_height() ))
             color_conv = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
             img = Image.fromarray(color_conv)

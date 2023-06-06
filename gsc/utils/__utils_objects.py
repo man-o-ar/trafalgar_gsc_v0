@@ -20,6 +20,7 @@ class AVAILABLE_TOPICS( str, Enum ):
 
 
 class SENSORS_TOPICS( str, Enum ):
+    IP = "ip"
     BATTERY_GAUGE = "gauge"
     BATTERY_VOLTAGE = "voltage"
     DIRECTION = "direction"
@@ -36,7 +37,7 @@ class SENSORS_TOPICS( str, Enum ):
     CAM_PAN = "pan"
     CAM_TILT = "tilt"
 
-class OPERATOR(str, Enum):
+class PEER(str, Enum):
     MASTER = "master"
     USER = "user"
     DRONE = "drone"
@@ -45,6 +46,9 @@ class EXIT_STATE(str, Enum ):
     SHUTDOWN = "shutdown"
     RESTART = "restart"
 
+DIRECTION_STP = ("EN STANDBY", "#868686")
+DIRECTION_FWD = ("MARCHE AVANT", "#028400")
+DIRECTION_BWD = ("MARCHE ARRIERE", "#CB4D00")
 
 DRONES_NAMES = [
     ("Aucun", ( "#000000", "#ffffff" )), 
