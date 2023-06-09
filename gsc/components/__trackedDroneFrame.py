@@ -291,7 +291,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
                 self._playtime.grid_forget()
 
             self.update_time_left_label( )
-            self._time_left_label.grid(row=0, rowspan=2, column=5, padx=0, pady=0, sticky="nsew")
+            self._time_left_label.grid(row=1, column=5, padx=(40,10), pady=(5,0), sticky="ew")
 
             self._masterApp.onOperatorPlay( self._index, True, self.playtime_nb  )
 
@@ -305,7 +305,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
             self._playtime.set("10 minutes")
             self.adjust_playtime()
 
-            self._playtime.grid(row=0, rowspan=2, column=5, padx=0, pady=0, sticky="nsew")
+            self._playtime.grid(row=1, column=5, padx=(40,10), pady=(5,0), sticky="ew")
 
             self._masterApp.onOperatorPlay( self._index, False, self.playtime_nb )
 

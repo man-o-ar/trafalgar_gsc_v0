@@ -33,7 +33,7 @@ class GCSNode( Node ):
         self._master = Master
             
         self._drone_index = -1
-
+        self._gameplayStatus = {}
         #heartbeats part
         self._pub_heartbeat = None
         self._beat_pulsation = 1.0
@@ -80,12 +80,24 @@ class GCSNode( Node ):
 
 
     def get_drones_names( self ):
-
         return self.get_parameter('names').value
+    
         
     def _init_components( self ):
+
         self._video_bridge = CvBridge()
-            
+        
+        gameplay_default_state = {
+            "enable" : False, 
+            "playtime": 10*60
+        }
+
+        for i in range( len( DRONES_NAMES ) ):
+
+            if( i == 0): continue
+            else:
+                self._gameplayStatus[f"peer_{i-1}"] = gameplay_default_state
+
 
     def _init_subscribers( self ):
             
@@ -102,7 +114,7 @@ class GCSNode( Node ):
                 operator_index = i-1
                 sub_sensor = self.create_subscription(
                     String,
-                    f"/{PEER.USER}_{operator_index}/{AVAILABLE_TOPICS.SENSOR.value}",
+                    f"/{PEER.USER.value}_{operator_index}/{AVAILABLE_TOPICS.SENSOR.value}",
                     self._operator_sensors_datas,
                     qos_profile = qos_profile_sensor_data
                 )
@@ -121,7 +133,7 @@ class GCSNode( Node ):
 
                 sub_sensor = self.create_subscription(
                     String,
-                    f"/{PEER.DRONE}_{drone_index}/{AVAILABLE_TOPICS.SENSOR.value}",
+                    f"/{PEER.DRONE.value}_{drone_index}/{AVAILABLE_TOPICS.SENSOR.value}",
                     self._drone_sensors_datas,
                     qos_profile = qos_profile_sensor_data
                 )
@@ -131,15 +143,6 @@ class GCSNode( Node ):
 
     def _init_publishers( self ):
 
-  
-        self._pub_gameplay = self.create_publisher(
-            String, 
-            AVAILABLE_TOPICS.GAMEPLAY.value,
-            10
-        )
-
-        self._pub_gameplay
-        
         self._pub_shutdown = self.create_publisher(
             String, 
             AVAILABLE_TOPICS.SHUTDOWN.value,
@@ -182,30 +185,26 @@ class GCSNode( Node ):
 
             self._sub_video = self.create_subscription(
                 CompressedImage, 
-                f"/{PEER.DRONE}_{self._drone_index}/{AVAILABLE_TOPICS.STREAM.value}", 
+                f"/{PEER.DRONE.value}_{self._drone_index}/{AVAILABLE_TOPICS.STREAM.value}", 
                 self._on_videostream, 
                 qos_profile=qos_profile_sensor_data
             )
 
             self._sub_video
 
-    
 
     def  _enable_gameplay( self, index, enable, playtime ):
-            
-        if self._pub_gameplay is not None:
+        
+        peer = f"peer_{index}"
 
-            gameplay_msg = String()
-                
-            drone_gameplay = {
-                "index" : index,
+        if peer in self._gameplayStatus:
+
+            gameplayUpdate = {
                 "enable" : enable,
                 "playtime" : playtime
             }
 
-            gameplay_msg.data = json.dumps( drone_gameplay )
-
-            self._pub_gameplay.publish( gameplay_msg )
+            self._gameplayStatus[peer] = gameplayUpdate
 
 
     def _pulse( self ):
@@ -217,8 +216,8 @@ class GCSNode( Node ):
             info = {
                 "address" : self._address,
                 "operator" : self._operator_type,
-                "pulse" : process_time(),
-                "control" : self._drone_index 
+                "control" : self._drone_index, 
+                "peers" : self._gameplayStatus
             }
 
             pulse_msg.data = json.dumps( info )
@@ -235,7 +234,9 @@ class GCSNode( Node ):
 
 
     def _update_direction( self, spin_direction = 0 ):
-            
+        """
+        update direction state value
+        """
         spin = int(np.clip( spin_direction, -1, 1 ))
             
         if self._save_direction != spin: 
@@ -247,7 +248,11 @@ class GCSNode( Node ):
             self._master._gui._set_direction(spin )
 
     def _update_propulsion( self, update_pwm = 50.0 ):
-            
+        
+        """
+        update propulsion slider value
+        """
+
         increment = math.floor( np.clip( update_pwm, 50, 200 ) ) 
             
         prop_msg = UInt16()
@@ -257,7 +262,9 @@ class GCSNode( Node ):
         self._master._gui._set_propulsion( ratio )
 
     def _update_panoramic( self, panAngle = 90, TiltAngle = 90 ):
-
+        """
+        update panoramic slider value
+        """
         vec = Vector3()
         vec.x = float(TiltAngle)
         vec.z = float(panAngle)
@@ -279,19 +286,6 @@ class GCSNode( Node ):
         if( "index" in operator_sensors and "datas" in operator_sensors ):
             self._master._gui.OnOperatorDatas( operator_sensors["index"], operator_sensors["datas"] )
 
-
-    def _react_to_connections( self, msg ):
-
-        self._is_peer_connected = msg.data
-        #print( "operator status message received, connection ", msg.peer_connected)
-            
-        """
-        if self._is_peer_connected is False:
-
-            if self._component is not None:
-                    
-                print( "peerIsConnected (drone)", self._is_peer_connected )
-        """
 
     def _on_gui_closed( self, value ):
 

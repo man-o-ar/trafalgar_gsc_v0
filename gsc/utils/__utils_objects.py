@@ -41,7 +41,7 @@ class PEER(str, Enum):
     MASTER = "master"
     USER = "user"
     DRONE = "drone"
-    
+    XR = "xr"
 class EXIT_STATE(str, Enum ):
     SHUTDOWN = "shutdown"
     RESTART = "restart"
