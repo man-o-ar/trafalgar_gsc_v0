@@ -91,7 +91,8 @@ class TrackedDrone( customtkinter.CTkFrame ):
                 self.update_time_left_label( )
 
             else:
-
+                
+                self._operator_switch.toggle()
                 self.enable_game_timer( False )
 
 
@@ -584,7 +585,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
             elif(topic == SENSORS_TOPICS.IP ):
                 self.onIPUpdate( sensor_datas[topic])
-                print(sensor_datas[topic])
+     
 
         self.GPSUpdate( )
 
