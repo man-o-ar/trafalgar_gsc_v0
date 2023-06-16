@@ -52,10 +52,10 @@ DIRECTION_BWD = ("MARCHE ARRIERE", "#CB4D00")
 
 DRONES_NAMES = [
     ("Aucun", ( "#000000", "#ffffff" )), 
+    ("Bounty", ("#A6A6A6", "#EA8E38" )),
     ("Daisy Jack", ( "#197600", "#DADADA" )),
+    ("Arjeroc", ("#1967FF", "#4B4B4B" )),
     ("Lady Idosia", ( "#DFB40C", "#0C83DF" )),
     ( "Rei Pelluci", ( "#FC431B", "#FFAA19" )), 
-    ("Arjeroc", ("#1967FF", "#4B4B4B" )),
-    ("PublicA", ("#4F4F4F", "#E7E7E7" )),
-    ("PublicB", ("#DFDFDF", "#EA8E38" ))
+    ("Obsidian", ("#4F4F4F", "#E7E7E7" ))
 ]

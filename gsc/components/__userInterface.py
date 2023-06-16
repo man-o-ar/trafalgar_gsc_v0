@@ -793,7 +793,7 @@ class DisplayWindow(customtkinter.CTk):
             self._propulsion_label.configure(fg_color=drone._propulsion_status.cget("fg_color"))
         
         if drone._propulsion_level is not None:
-            self._thrust_slider.set( drone._propulsion_level )
+            self._thrust_slider.set( drone._propulsion_level / 100 )
 
         if drone._steering is not None:
             self._direction_slider.set(drone._steering )
