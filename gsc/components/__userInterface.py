@@ -77,6 +77,7 @@ class DisplayWindow(customtkinter.CTk):
         self._frame = None
         self.last_frame = None
         self._is_frame_updated = False
+        self._blackScreen is False
 
         self._initialize()
         
@@ -365,6 +366,8 @@ class DisplayWindow(customtkinter.CTk):
         self._tilt_slider.grid(row=5, column=1, padx=0, pady=(5, 20), sticky="ew")
         self._tilt_slider.set(90)
 
+        self.drawBlackScreen()
+        
         return fpv_container_frame
 
 
@@ -837,8 +840,20 @@ class DisplayWindow(customtkinter.CTk):
 
             self._frame = img_canvas
             self._is_frame_updated = True
-            
-    
+
+
+    def drawBlackScreen( self ):
+
+        if self._blackScreen is False: 
+
+            self.canvas.update_idletasks()
+            self.canvas.delete("all")
+
+            self.canvas.create_rectangle(0, 0, self.canvas.winfo_width(), self.canvas.winfo_height(), fill="black")
+
+            self._blackScreen = True 
+
+
     def _render_frame(self):
         
         if self._is_frame_updated is True:
@@ -848,7 +863,8 @@ class DisplayWindow(customtkinter.CTk):
                 self.last_image = self._frame
                 self.canvas.delete("all")
                 self.canvas.create_image(0, 0, anchor="nw", image=self.last_image)
-            
+        else:   
+            self.drawBlackScreen()
 
         self._is_frame_updated = False
         # schedule the next update

@@ -46,6 +46,10 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         self._isOperatorSendingUpdates = False
         self._isOperatorHasSentUpdates = False
+        self._operatorConnectionTimeToGCS = 0
+        self._operatorUpdatesDelay = 5
+        self._operatorUpdatesTimer = self._operatorUpdatesDelay 
+        
         #STORE VALUES
 
         self._droneGauge = 0
@@ -95,12 +99,19 @@ class TrackedDrone( customtkinter.CTkFrame ):
                 self._operator_switch.toggle()
                 self.enable_game_timer( False )
 
+        self._update_connection_time()
+        self._update_operator_connection_time( )
 
-        if( self._isDroneSendingUpdates is True ):
-            self._update_connection_time()
+        if self._isOperatorSendingUpdates is False:
+            self._reset_operator_widgets()
 
+        if self._isDroneSendingUpdates is False: 
+            self._reset_widgets()
+    
         self._check_drone_status()
+        self._check_operator_status()
 
+   
 
     def _check_drone_status(self):
 
@@ -115,13 +126,42 @@ class TrackedDrone( customtkinter.CTkFrame ):
                     
             self._isDroneHasSentUpdates  =  False
 
+    def _check_operator_status(self):
+
+        self._operatorUpdatesTimer -= 1
+
+        if( self._operatorUpdatesTimer <= 0 ):
+            
+            self._operatorUpdatesTimer = self._operatorUpdatesDelay
+
+            if not self._isOperatorHasSentUpdates :
+                self._isOperatorSendingUpdates = False
+                    
+            self._isOperatorHasSentUpdates  =  False
+
     def _update_connection_time( self ):
         # add total connection time
         self._droneConnectionTimeToGCS +=1
+        
+        if self._isDroneSendingUpdates is False: 
+            self._droneConnectionTimeToGCS = 0
 
         time_delta = datetime.timedelta(seconds=self._droneConnectionTimeToGCS)
         formatted_time = str(time_delta).split(".")[0]
         self._connectionTime_label.configure( text= formatted_time )
+
+
+    def _update_operator_connection_time( self ):
+        
+        self._operatorConnectionTimeToGCS +=1
+        
+        if self._isOperatorSendingUpdates is False :
+            self._operatorConnectionTimeToGCS = 0
+
+        time_delta = datetime.timedelta(seconds=self._operatorConnectionTimeToGCS)
+        formatted_time = str(time_delta).split(".")[0]
+        self._connectionTimeOperator_label.configure( text= formatted_time )
+
 
     def populate_frame( self ): 
         
@@ -208,10 +248,10 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
 
     def add_operatorGauge_progressbar( self ):
-        self._operatorGauge  = customtkinter.CTkProgressBar(self,
+        self._operator_battery_gauge  = customtkinter.CTkProgressBar(self,
                                                     height = 10,
                                                     orientation="horizontal")
-        self._operatorGauge.grid(row=0, column=3, padx=(5,10), pady=0, sticky="ew")
+        self._operator_battery_gauge.grid(row=0, column=3, padx=(5,10), pady=0, sticky="ew")
 
         self.update_operatorGauge(100)
 
@@ -404,21 +444,21 @@ class TrackedDrone( customtkinter.CTkFrame ):
         
         update_gauge = np.clip( data, 0, 100) /100
 
-        self._operatorGauge.set( update_gauge )
+        self._operator_battery_gauge.set( update_gauge )
 
         if update_gauge > 0.5:
 
             if ( update_gauge >= 0.65 ):
-                self._operatorGauge.configure(progress_color =  "#47D600")
+               self._operator_battery_gauge.configure(progress_color =  "#47D600")
             else:
-                self._operatorGauge.configure(progress_color =  "#FFCD00")
+                self._operator_battery_gauge.configure(progress_color =  "#FFCD00")
 
         elif update_gauge <= 0.5:
 
             if( update_gauge > 0.3):
-                self._operatorGauge.configure(progress_color =  "#FF8000")
+                self._operator_battery_gauge.configure(progress_color =  "#FF8000")
             else:
-                self._operatorGauge.configure(progress_color =  "#FF0000")
+                self._operator_battery_gauge.configure(progress_color =  "#FF0000")
 
 
     def onGaugeUpdate( self, data, isDrone = True ):
@@ -602,3 +642,36 @@ class TrackedDrone( customtkinter.CTkFrame ):
             elif(topic == SENSORS_TOPICS.BATTERY_VOLTAGE  ):
                 self.onVoltageUpdate( sensor_datas[topic], False )
             
+
+    def _reset_widgets( self ):
+        
+        self.onGaugeUpdate( 0, True )
+        self.onVoltageUpdate( 0, True )
+    
+        self._droneGauge = 0
+        self._operatorGauge = 0
+        self._voltage = 0
+        self._operatorVoltage = 0
+
+        self._propulsion_status = None
+        self._propulsion_level = 0
+        self._steering = 0
+
+        self._camera_azimuth = 90
+        self._camera_tilt = 90
+
+        self._latitude = 0
+        self._longitude = 0
+        self._azimuth = 0
+        self._speed = 0
+
+        self._pitch = 0
+        self._roll = 0
+        self._yaw =0
+
+        self._obstacle = 0
+
+
+    def _reset_operator_widgets(self):
+        self.onGaugeUpdate( 0, False )
+        self.onVoltageUpdate( 0, False )
