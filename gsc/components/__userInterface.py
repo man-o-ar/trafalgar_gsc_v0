@@ -649,8 +649,8 @@ class DisplayWindow(customtkinter.CTk):
 
                 operator_state = drone.operator_status.get()
 
-                if operator_state is True:
-                    drone._operator_switch.toggle()
+                #if operator_state is True:
+                #    drone._operator_switch.toggle()
                 
                 self.update_drone_control_by_master()
 
@@ -658,6 +658,7 @@ class DisplayWindow(customtkinter.CTk):
             
             self._drone_control_by_master = None
             
+            self.canvas.delete("all")
             self.canvas.configure(bg='white')
 
             self._shipColor_label.configure( fg_color="transparent")
