@@ -30,15 +30,12 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         self._playtime = None
         self._operator_switch = None
-        self._stop_switch = None
-
         self._autopilot_switch = None
 
         self.operator_status = customtkinter.BooleanVar(value=False)
         self.playtime_value = customtkinter.StringVar(value="10 minutes")
 
         self.autopilot_status = customtkinter.BooleanVar(value=False) #StringVar
-        self.stop_status = customtkinter.BooleanVar(value=False) #StringVar
 
         self._isDroneSendingUpdates = False
         self._isDroneHasSentUpdates  =  False
@@ -151,6 +148,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         time_delta = datetime.timedelta(seconds=self._droneConnectionTimeToGCS)
         formatted_time = str(time_delta).split(".")[0]
+        
         if self._connectionTime_label is not None : self._connectionTime_label.configure( text= formatted_time )
 
 
@@ -163,16 +161,15 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         time_delta = datetime.timedelta(seconds=self._operatorConnectionTimeToGCS)
         formatted_time = str(time_delta).split(".")[0]
-
-        if self._connectionTimeOperator_label is not None :
-            self._connectionTimeOperator_label.configure( text= formatted_time )
+        
+        if self._connectionTimeOperator_label is not None : self._connectionTimeOperator_label.configure( text= formatted_time )
 
 
     def populate_frame( self ): 
         
         self.configure_grid()
         self.add_name_label()
-        self.add_stop_switch()
+        self.add_autopilot_switch()
         self.add_propulsion_label()
         self.add_devices_label()
         self.add_droneGauge_progressbar()
@@ -208,22 +205,6 @@ class TrackedDrone( customtkinter.CTkFrame ):
         label.grid(row=0, rowspan=2, column=0, padx=10, pady=0, sticky="nsew")
 
 
-    def add_stop_switch( self ):
-
-        self._stop_switch  = customtkinter.CTkSwitch(
-            master=self, 
-            text=f"STOP",
-            command=self.onStopSwitch,
-            variable=self.stop_status, 
-            onvalue=True,
-            offvalue=False
-            )
-        
-        self._stop_switch.deselect()
-
-        self._stop_switch.grid(row=0,  column=1, padx=5, pady=0, sticky="nsew")
-
-
     def add_autopilot_switch( self ):
 
         self._autopilot_switch  = customtkinter.CTkSwitch(
@@ -238,7 +219,6 @@ class TrackedDrone( customtkinter.CTkFrame ):
         self._autopilot_switch.deselect()
 
         self._autopilot_switch.grid(row=0,  column=1, padx=5, pady=0, sticky="nsew")
-
 
     def add_propulsion_label( self ):
         self._propulsion_status = customtkinter.CTkLabel(
@@ -337,8 +317,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
         seconds = self._playtime_left % 60
         formatted_time = "{:02d}:{:02d}".format(minutes, seconds)
 
-        if self._time_left_label is not None :
-            self._time_left_label.configure( text=f" {formatted_time} ")
+        if self._time_left_label is not None : self._time_left_label.configure( text=f" {formatted_time} ")
         
 
     def enable_game_timer( self, isEnable ):
@@ -349,8 +328,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
             
             self._playtime_left = self.playtime_nb
 
-            if self._operator_switch is not None :
-                self._operator_switch.configure(text="STOP THE GAME")
+            if self._operator_switch is not None : self._operator_switch.configure(text="STOP THE GAME")
 
             if( self._playtime.winfo_viewable()):
                 self._playtime.grid_forget()
@@ -362,16 +340,10 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         else:
             
-            stop_state = self.operator_status.get()
-
-            if stop_state is True: 
-                self._stop_switch.toggle()
-                
             self._playtime_left = 0
             self._time_left_label.grid_forget()
 
-            if self._operator_switch is not None : 
-                self._operator_switch.configure(text="START A GAME")
+            if self._operator_switch is not None : self._operator_switch.configure(text="START A GAME")
 
             self._playtime.set("10 minutes")
             self.adjust_playtime()
@@ -414,12 +386,6 @@ class TrackedDrone( customtkinter.CTkFrame ):
         operator_state = self.operator_status.get()
         self.enable_game_timer(operator_state)
 
-
-    def onStopSwitch(self):
-
-        stop_state = self.stop_status.get()
-        self._masterApp.OnForceStop( self._index, stop_state )
-
     def onAutopilotSwitch(self):
 
         autopilot_state = self.autopilot_status.get()
@@ -431,15 +397,16 @@ class TrackedDrone( customtkinter.CTkFrame ):
             if operator_state is True:
                 self._operator_switch.toggle()
 
-            self._operator_switch.configure(state="disabled")
+            if self._operator_switch is not None: self._operator_switch.configure(state="disabled")
 
             print( "autopilot enable ")
 
         elif ( autopilot_state is False):
-            self._operator_switch.configure(state="normal")
+            if self._operator_switch is not None : self._operator_switch.configure(state="normal")
             print("autopilot disable")
 
     def update_propulsion( self, data ): 
+
         if self._propulsion_status is not None: 
             if( data == -1):
 
@@ -452,6 +419,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
                 self._propulsion_status.configure(fg_color=DIRECTION_FWD[1])
 
             else:
+
                 self._propulsion_status.configure(text= DIRECTION_STP[0])
                 self._propulsion_status.configure(fg_color=DIRECTION_STP[1])
 
@@ -459,6 +427,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
         
         update_gauge = np.clip( data, 0, 100) / 100
         self._droneGauge = update_gauge
+
         if self._drone_battery_gauge is not None:
 
             self._drone_battery_gauge.set( update_gauge )
@@ -498,6 +467,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
                     self._operator_battery_gauge.configure(progress_color =  "#FF8000")
                 else:
                     self._operator_battery_gauge.configure(progress_color =  "#FF0000")
+
 
     def onGaugeUpdate( self, data, isDrone = True ):
 
@@ -604,7 +574,6 @@ class TrackedDrone( customtkinter.CTkFrame ):
                 self.add_marker(self._latitude, self._longitude )
             else:
                 self.update_position(self._latitude, self._longitude)
-
     
     def update_position( self, latitude, longitude ): 
         self._marker.set_position(latitude, longitude)
@@ -666,7 +635,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
                 self.onIPUpdate( sensor_datas[topic])
      
 
-        self.GPSUpdate( )
+        #self.GPSUpdate( )
 
     def onOperatorUpdate( self, sensor_datas ):
 

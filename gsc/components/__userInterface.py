@@ -77,7 +77,7 @@ class DisplayWindow(customtkinter.CTk):
         self._frame = None
         self.last_frame = None
         self._is_frame_updated = False
-        self._blackScreen is False
+        self._blackScreen = False
 
         self._initialize()
         

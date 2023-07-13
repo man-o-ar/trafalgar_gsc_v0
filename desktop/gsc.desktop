@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=GSC app
+Exec=bash -c "source /opt/ros/humble/setup.bash && source home/od/manoar_gsc_ws/install/local_setup.bash && ros2 launch gsc gui_launch.py"
+Icon=/usr/share/icons/manoar/ico.png
+

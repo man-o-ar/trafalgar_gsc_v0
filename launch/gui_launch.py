@@ -9,7 +9,7 @@ def generate_launch_description():
 
     gui_node = Node(
         package="gsc",
-        executable="gui",
+        executable="gsc",
         namespace="master",
         name='gui',
         #parameters=[gui_params],
