@@ -684,6 +684,9 @@ class DisplayWindow(customtkinter.CTk):
         self._master._node._enable_gameplay( index, enable, playtime )
 
 
+    def OnForceStop( self, index, isStopped ):
+        self._master._node._set_on_stop( index, isStopped )
+
     def OnDronesDatas( self, index, data ):
 
         drone = self._tracked_drones[f"drone_{index}"]

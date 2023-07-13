@@ -30,12 +30,15 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         self._playtime = None
         self._operator_switch = None
+        self._stop_switch = None
+
         self._autopilot_switch = None
 
         self.operator_status = customtkinter.BooleanVar(value=False)
         self.playtime_value = customtkinter.StringVar(value="10 minutes")
 
         self.autopilot_status = customtkinter.BooleanVar(value=False) #StringVar
+        self.stop_status = customtkinter.BooleanVar(value=False) #StringVar
 
         self._isDroneSendingUpdates = False
         self._isDroneHasSentUpdates  =  False
@@ -167,7 +170,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
         
         self.configure_grid()
         self.add_name_label()
-        self.add_autopilot_switch()
+        self.add_stop_switch()
         self.add_propulsion_label()
         self.add_devices_label()
         self.add_droneGauge_progressbar()
@@ -203,6 +206,22 @@ class TrackedDrone( customtkinter.CTkFrame ):
         label.grid(row=0, rowspan=2, column=0, padx=10, pady=0, sticky="nsew")
 
 
+    def add_stop_switch( self ):
+
+        self._stop_switch  = customtkinter.CTkSwitch(
+            master=self, 
+            text=f"STOP",
+            command=self.onStopSwitch,
+            variable=self.stop_status, 
+            onvalue=True,
+            offvalue=False
+            )
+        
+        self._stop_switch.deselect()
+
+        self._stop_switch.grid(row=0,  column=1, padx=5, pady=0, sticky="nsew")
+
+
     def add_autopilot_switch( self ):
 
         self._autopilot_switch  = customtkinter.CTkSwitch(
@@ -217,6 +236,7 @@ class TrackedDrone( customtkinter.CTkFrame ):
         self._autopilot_switch.deselect()
 
         self._autopilot_switch.grid(row=0,  column=1, padx=5, pady=0, sticky="nsew")
+
 
     def add_propulsion_label( self ):
         self._propulsion_status = customtkinter.CTkLabel(
@@ -383,6 +403,12 @@ class TrackedDrone( customtkinter.CTkFrame ):
 
         operator_state = self.operator_status.get()
         self.enable_game_timer(operator_state)
+
+
+    def onStopSwitch(self):
+
+        stop_state = self.stop_status.get()
+        self._masterApp.OnForceStop( self._index, stop_state )
 
     def onAutopilotSwitch(self):
 

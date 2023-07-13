@@ -89,7 +89,8 @@ class GCSNode( Node ):
         
         gameplay_default_state = {
             "enable" : False, 
-            "playtime": 10*60
+            "playtime": 10*60,
+            "stop" : False
         }
 
         for i in range( len( DRONES_NAMES ) ):
@@ -205,6 +206,14 @@ class GCSNode( Node ):
             }
 
             self._gameplayStatus[peer] = gameplayUpdate
+
+    def _set_on_stop(self, index, isStopped ):
+        
+        peer = f"peer_{index}"
+
+        if peer in self._gameplayStatus:
+
+            self._gameplayStatus[peer]["stop"] = isStopped
 
 
     def _pulse( self ):
